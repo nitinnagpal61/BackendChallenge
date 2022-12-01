@@ -19,6 +19,9 @@ public class QuizController : Controller
 
     // TODO: Remove the dependency injection of IDbConnection in the QuizController to make it easily testable through mock data.
     // TODO: Make changes for the rest of the Action Methods and move it to repository POST, PUT, DELETE
+    // TODO: Create 2 more layers (class libraries) i.e QuizService.BAL and QuizService.DAL
+    // TODO: Move all the database connection logic and repositories to DAL.
+    // TODO: Create IQuizService in the QuizService.BAL to inject it in the controller which must take care of all the operations instead of injecting all repositories in the Controller.
     public QuizController(IDbConnection connection, IQuizRepository quizRepository, IQuestionRepository questionRepository, IAnswerRepository answerRepository)
     {
         _connection = connection;
