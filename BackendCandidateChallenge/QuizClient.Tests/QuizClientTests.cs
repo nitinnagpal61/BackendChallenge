@@ -214,7 +214,7 @@ public class QuizClientTests : IClassFixture<QuizServiceApiPact>
 
         _mockProviderService.VerifyInteractions();
     }
-		
+
     [Fact]
     public async Task PostAnswers_Returns201CreatedAndLocationHeader()
     {
@@ -281,10 +281,86 @@ public class QuizClientTests : IClassFixture<QuizServiceApiPact>
 
         var consumer = new QuizClient(_mockProviderServiceBaseUri, Client);
 
-        var result = await consumer.PostQuizResponseAsync(new QuestionResponse(),123);
+        var result = await consumer.PostQuizResponseAsync(new QuestionResponse(), 123);
         Assert.True(string.IsNullOrEmpty(result.ErrorMessage), result.ErrorMessage);
         Assert.Equal(HttpStatusCode.Created, result.StatusCode);
         Assert.NotNull(result.Value);
+
+        _mockProviderService.VerifyInteractions();
+    }
+
+    [Fact]
+    public async Task CreatesAQuizeWith2QuestionsAndCalculatesSCore()
+    {
+        _mockProviderService
+              .Given("There are some quizzes with 2 questions")
+              .UponReceiving("A POST request to quiz 123 questions collection")
+              .With(new ProviderServiceRequest
+              {
+                  Method = HttpVerb.Post,
+                  Path = "/api/quizzes/123/responses",
+                  Headers = new Dictionary<string, object>
+                  {
+                    { "Content-Type", "application/json" }
+                  }
+              })
+              .WillRespondWith(new ProviderServiceResponse
+              {
+                  Status = 201,
+                  Headers = new Dictionary<string, object>
+                  {
+                    { "Content-Type", "application/json" },
+                    { "Location", PactNet.Matchers.Match.Regex("/api/quizzes/123/responses", "quizzes\\/123\\/responses") }
+                  }
+              });
+
+        var consumer = new QuizClient(_mockProviderServiceBaseUri, Client);
+        var result = await consumer.PostQuizResponseAsync(new QuestionResponse
+        {
+            id = 123,
+            title = "My first quiz",
+            questions = new List<Question>
+            {
+                new Question
+                    {
+                        id = 1,
+                        text = "My first question",
+                        answers = new List<Answer>
+                        {
+                            new Answer
+                            {
+                                id = 1,
+                                text = "My first answer to first q"
+                            },
+                            new Answer
+                            {
+                                id = 2,
+                                text = "My second answer to first q"
+                            }
+                        },
+                        correctAnswerId = 1
+                    },
+                 new Question
+                    {
+                        id = 1,
+                        text = "My second question",
+                        answers = new List<Answer>
+                        {
+                            new Answer
+                            {
+                                id = 1,
+                                text = "My first answer to second q"
+                            },
+                            new Answer
+                            {
+                                id = 2,
+                                text = "My second answer to second q"
+                            }
+                        },
+                        correctAnswerId = 2
+                    }
+            }
+        }, 123);
 
         _mockProviderService.VerifyInteractions();
     }

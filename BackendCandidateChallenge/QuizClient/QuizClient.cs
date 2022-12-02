@@ -99,10 +99,11 @@ public class QuizClient
 
     public async Task<Response<Uri>> PostQuizResponseAsync(QuestionResponse questionResponse, int quizId)
     {
+        var json = new StringContent(JsonConvert.SerializeObject(questionResponse));
         var request =
             new HttpRequestMessage(HttpMethod.Post, new Uri(_quizServiceUri, $"/api/quizzes/{quizId}/responses"))
             {
-                Content = new StringContent(JsonConvert.SerializeObject(questionResponse))
+                Content = json
             };
         request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         var response = await _httpClient.SendAsync(request);
