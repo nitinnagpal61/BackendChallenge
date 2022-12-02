@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using QuizService.Model;
 using QuizService.Model.Domain;
 using System.Linq;
+using QuizService.Repositories.Interfaces;
 
 namespace QuizService.Controllers;
 
@@ -12,18 +13,28 @@ namespace QuizService.Controllers;
 public class QuizController : Controller
 {
     private readonly IDbConnection _connection;
+    private readonly IQuizRepository _quizRepository;
+    private readonly IQuestionRepository _questionRepository;
+    private readonly IAnswerRepository _answerRepository;
 
-    public QuizController(IDbConnection connection)
+    // TODO: Remove the dependency injection of IDbConnection in the QuizController to make it easily testable through mock data.
+    // TODO: Make changes for the rest of the Action Methods and move it to repository POST, PUT, DELETE
+    // TODO: Create 2 more layers (class libraries) i.e QuizService.BAL and QuizService.DAL
+    // TODO: Move all the database connection logic and repositories to DAL.
+    // TODO: Create IQuizService in the QuizService.BAL to inject it in the controller which must take care of all the operations instead of injecting all repositories in the Controller.
+    public QuizController(IDbConnection connection, IQuizRepository quizRepository, IQuestionRepository questionRepository, IAnswerRepository answerRepository)
     {
         _connection = connection;
+        _quizRepository = quizRepository;
+        _questionRepository = questionRepository;
+        _answerRepository = answerRepository;
     }
 
     // GET api/quizzes
     [HttpGet]
     public IEnumerable<QuizResponseModel> Get()
     {
-        const string sql = "SELECT * FROM Quiz;";
-        var quizzes = _connection.Query<Quiz>(sql);
+        var quizzes = _quizRepository.GetQuizes();
         return quizzes.Select(quiz =>
             new QuizResponseModel
             {
@@ -36,20 +47,8 @@ public class QuizController : Controller
     [HttpGet("{id}")]
     public object Get(int id)
     {
-        const string quizSql = "SELECT * FROM Quiz WHERE Id = @Id;";
-        var quiz = _connection.QuerySingle<Quiz>(quizSql, new {Id = id});
-        if (quiz == null)
-            return NotFound();
-        const string questionsSql = "SELECT * FROM Question WHERE QuizId = @QuizId;";
-        var questions = _connection.Query<Question>(questionsSql, new {QuizId = id});
-        const string answersSql = "SELECT a.Id, a.Text, a.QuestionId FROM Answer a INNER JOIN Question q ON a.QuestionId = q.Id WHERE q.QuizId = @QuizId;";
-        var answers = _connection.Query<Answer>(answersSql, new {QuizId = id})
-            .Aggregate(new Dictionary<int, IList<Answer>>(), (dict, answer) => {
-                if (!dict.ContainsKey(answer.QuestionId))
-                    dict.Add(answer.QuestionId, new List<Answer>());
-                dict[answer.QuestionId].Add(answer);
-                return dict;
-            });
+        var quiz = _quizRepository.GetQuizById(id);
+        var questions = _questionRepository.GetQuestions(id);
         return new QuizResponseModel
         {
             Id = quiz.Id,
@@ -58,13 +57,13 @@ public class QuizController : Controller
             {
                 Id = question.Id,
                 Text = question.Text,
-                Answers = answers.ContainsKey(question.Id)
-                    ? answers[question.Id].Select(answer => new QuizResponseModel.AnswerItem
+                Answers = _answerRepository.GetAnswers(question.Id)
+                .Select(answer => new QuizResponseModel.AnswerItem
                     {
                         Id = answer.Id,
                         Text = answer.Text
                     })
-                    : new QuizResponseModel.AnswerItem[0],
+                    ?? new QuizResponseModel.AnswerItem[0],
                 CorrectAnswerId = question.CorrectAnswerId
             }),
             Links = new Dictionary<string, string>
